@@ -1,0 +1,135 @@
+import React, { Component } from 'react';
+import { singlePost, remove } from './apiPost';
+import DefaultPost from '../images/family.jpg';
+import { Link, Redirect } from 'react-router-dom';
+import { isAuthenticated } from '../auth';
+
+class SinglePost extends Component {
+    state = {
+        post: '',
+        redirectToHome: false,
+        redirectToSignin: false,
+    };
+
+    componentDidMount = () => {
+        const postId = this.props.match.params.postId;
+        singlePost(postId).then(data => {
+            if (data.error) {
+                console.log(data.error);
+            } else {
+                this.setState({
+                    post: data,
+                });
+            }
+        });
+    };
+
+    deletePost = () => {
+        const postId = this.props.match.params.postId;
+        const token = isAuthenticated().token;
+        remove(postId, token).then(data => {
+            if (data.error) {
+                console.log(data.error);
+            } else {
+                this.setState({ redirectToHome: true });
+            }
+        });
+    };
+
+    deleteConfirmed = () => {
+        let answer = window.confirm('Are you sure you want to delete your post?');
+        if (answer) {
+            this.deletePost();
+        }
+    };
+
+    renderPost = post => {
+        const posterId = post.postedBy ? `/user/${post.postedBy._id}` : '';
+        const posterName = post.postedBy ? post.postedBy.name : ' Inconnu';
+
+        return (
+            <div className="card-body">
+                <img
+                    src={`${process.env.REACT_APP_API_URL}/post/photo/${post._id}`}
+                    alt={post.title}
+                    onError={i => (i.target.src = `${DefaultPost}`)}
+                    className="img-thunbnail mb-3"
+                    style={{
+                        height: 'auto',
+                        width: 'auto',
+                        objectFit: 'cover'
+                    }}
+                />
+
+                <p className="card-text">{post.body}</p>
+                <br />
+                <p className="font-italic mark">
+                    Envoyé par <Link to={`${posterId}`}>{posterName} </Link>
+                    le {new Date(post.created).toLocaleDateString("fr-FR")}
+                </p>
+                <div className="d-inline-block">
+                    <Link to={`/`} className="btn btn-raised btn-primary btn-sm mr-5">
+                        Tous les posts
+                    </Link>
+
+                    {isAuthenticated().user && isAuthenticated().user._id === post.postedBy._id && (
+                        <>
+                            <Link to={`/post/edit/${post._id}`} className="btn btn-raised btn-warning btn-sm mr-5">
+                                Modifier
+                            </Link>
+                            <button onClick={this.deleteConfirmed} className="btn btn-raised btn-danger">
+                                Supprimer
+                            </button>
+                        </>
+                    )}
+
+                    <div>
+                        {isAuthenticated().user && isAuthenticated().user.role === 'admin' && (
+                            <div class="card mt-5">
+                                <div className="card-body">
+                                    <h5 className="card-title">Admin</h5>
+                                    <p className="mb-2 text-danger">Modifier/supprimer en admin</p>
+                                    <Link
+                                        to={`/post/edit/${post._id}`}
+                                        className="btn btn-raised btn-warning btn-sm mr-5"
+                                    >
+                                        Modifier
+                                    </Link>
+                                    <button onClick={this.deleteConfirmed} className="btn btn-raised btn-danger">
+                                        Supprimer
+                                    </button>
+                                </div>
+                            </div>
+                        )}
+                    </div>
+                </div>
+            </div>
+        );
+    };
+
+    render() {
+        const { post, redirectToHome, redirectToSignin } = this.state;
+
+        if (redirectToHome) {
+            return <Redirect to={`/`} />;
+        } else if (redirectToSignin) {
+            return <Redirect to={`/signin`} />;
+        }
+
+        return (
+            <div className="container">
+                <h2 className="display-2 mt-5 mb-5">{post.title}</h2>
+
+                {!post ? (
+                    <div className="jumbotron text-center">
+                        <h2>Loading...</h2>
+                    </div>
+                ) : (
+                        this.renderPost(post)
+                    )}
+            </div>
+        );
+    }
+}
+
+export default SinglePost;
